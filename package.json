@@ -1,0 +1,19 @@
+{
+  "name": "artegiano-ponto",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:setup": "node --env-file=.env.local scripts/setup.mjs",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6",
+    "next": "^16.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}
