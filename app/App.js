@@ -6,6 +6,7 @@ const brl = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const fmt = s => { const [y, m, d] = s.split('-'); return DIAS[new Date(+y, +m - 1, +d).getDay()] + ' ' + d + '/' + m; };
+const isWeekend = s => { const dow = new Date(s + 'T00:00:00').getDay(); return dow === 0 || dow === 6; };
 const week = off => {
   const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + off * 7);
   return [...Array(7)].map((_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return iso(x); });
@@ -298,13 +299,20 @@ function MesChart({ m, rows, c }) {
 
 function Escala() {
   const [wk, setWk] = useState(0); const [rows, setRows] = useState([]); const [emps, setEmps] = useState([]); const [err, setErr] = useState('');
+  const [editId, setEditId] = useState(null); const [ed, setEd] = useState({ start: '', end: '' });
   const w = week(wk);
   const [f, setF] = useState({ userId: '', day: w[0], start: '10:00', end: '17:00' });
   const load = useCallback(() => call(`/api/shifts?from=${w[0]}&to=${w[6]}`).then(j => setRows(j.shifts)).catch(e => setErr(e.message)), [wk]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); setEditId(null); }, [load]);
   useEffect(() => { call('/api/employees').then(j => { const a = j.employees.filter(e => e.active); setEmps(a); setF(x => ({ ...x, userId: x.userId || (a[0] && a[0].id) || '' })); }).catch(e => setErr(e.message)); }, []);
   async function add() { setErr(''); try { await call('/api/shifts', 'POST', f); await load(); } catch (e) { setErr(e.message); } }
   async function del(id) { setErr(''); try { await call('/api/shifts?id=' + id, 'DELETE'); await load(); } catch (e) { setErr(e.message); } }
+  function editar(s) { setEditId(s.id); setEd({ start: s.st, end: s.en }); setErr(''); }
+  async function salvar() {
+    setErr('');
+    try { await call('/api/shifts?id=' + editId, 'PATCH', ed); setEditId(null); await load(); }
+    catch (e) { setErr(e.message); }
+  }
   return (
     <>
       <div className="card"><b>Atribuir horário</b>
@@ -318,13 +326,39 @@ function Escala() {
         {err && <div className="msg bad">{err}</div>}
       </div>
       <WeekNav wk={wk} setWk={setWk} />
-      <div className="card" style={{ marginTop: 10 }}>
-        {w.map(d => { const l = rows.filter(s => s.day === d); return (
-          <div key={d} style={{ padding: '6px 0', borderBottom: '1px dashed var(--bd)' }}><b className={d === iso(new Date()) ? 'ok' : ''}>{fmt(d)}</b>
-            {l.length ? l.map(s => <div className="sh" key={s.id}><span>{s.name} · {s.st} – {s.en}</span><button className="x" onClick={() => del(s.id)}>Tirar</button></div>) : <div className="sub">Sem ninguém escalado</div>}
+      {w.map(d => {
+        const l = rows.filter(s => s.day === d), fds = isWeekend(d);
+        return (
+          <div className={'card esc-dia' + (fds ? ' fim' : '')} key={d} style={{ marginTop: 10 }}>
+            <div className="esc-dh">
+              <b className={d === iso(new Date()) ? 'ok' : ''}>{fmt(d)}</b>
+              {fds && <span className="tag2 esc-tag">fim de semana</span>}
+            </div>
+            {l.length ? l.map(s => editId === s.id ? (
+              <div className="sh" key={s.id}>
+                <span className="row" style={{ gap: 6, flex: 1 }}>
+                  {s.name}
+                  <input type="time" value={ed.start} onChange={e => setEd({ ...ed, start: e.target.value })} />
+                  <span className="sub">–</span>
+                  <input type="time" value={ed.end} onChange={e => setEd({ ...ed, end: e.target.value })} />
+                </span>
+                <span className="row" style={{ gap: 10 }}>
+                  <button className="x" style={{ color: 'var(--ac)' }} onClick={salvar}>Salvar</button>
+                  <button className="x" onClick={() => setEditId(null)}>Cancelar</button>
+                </span>
+              </div>
+            ) : (
+              <div className="sh" key={s.id}>
+                <span>{s.name} · {s.st} – {s.en}</span>
+                <span className="row" style={{ gap: 10 }}>
+                  <button className="x" style={{ color: 'var(--ac)' }} onClick={() => editar(s)}>Editar</button>
+                  <button className="x" onClick={() => del(s.id)}>Tirar</button>
+                </span>
+              </div>
+            )) : <div className="sub">Sem ninguém escalado</div>}
           </div>
-        ); })}
-      </div>
+        );
+      })}
     </>
   );
 }
@@ -340,7 +374,10 @@ function Pagamentos() {
   return (
     <>
       <MonthNav m={m} setM={setM} />
-      <div className="card row sp"><span>Valor da hora: <b>{brl(r.hourValue)}</b></span><span className="sub">Pago {brl(paid)} · <b className="warn">A pagar {brl(owe)}</b></span></div>
+      <div className="card row sp">
+        <span>Valor da hora: <b>{brl(r.hourValue)}</b> <span className="sub">· fim de semana {brl(r.weekendDayValue)}/dia (8h)</span></span>
+        <span className="sub">Pago {brl(paid)} · <b className="warn">A pagar {brl(owe)}</b></span>
+      </div>
       {r.rows.map(y => { const pend = pendentes(y); return (
         <div className="card" key={y.id}>
           <button className="pg-who" onClick={() => setSel(y.id)}>
@@ -466,7 +503,8 @@ function Ajustes() {
   return (
     <div className="card"><b>Ajustes</b>
       <div className="row" style={{ marginTop: 8 }}>
-        <label>R$ por hora<input type="number" step="0.01" value={s.hourValue} onChange={e => set('hourValue', e.target.value)} /></label>
+        <label>R$ por hora (seg a sex)<input type="number" step="0.01" value={s.hourValue} onChange={e => set('hourValue', e.target.value)} /></label>
+        <label>R$ diária de fim de semana (8h)<input type="number" step="0.01" value={s.weekendDayValue} onChange={e => set('weekendDayValue', e.target.value)} /></label>
         <label>Exigir localização<select value={s.geoOn ? '1' : '0'} onChange={e => set('geoOn', e.target.value === '1')}><option value="0">Não (por enquanto)</option><option value="1">Sim</option></select></label>
         <label>Latitude<input value={s.lat ?? ''} onChange={e => set('lat', e.target.value)} inputMode="decimal" /></label>
         <label>Longitude<input value={s.lng ?? ''} onChange={e => set('lng', e.target.value)} inputMode="decimal" /></label>
@@ -474,6 +512,7 @@ function Ajustes() {
       </div>
       <div className="row" style={{ marginTop: 10 }}><button className="btn ghost" onClick={aqui}>Usar minha posição atual</button><button className="btn" onClick={save}>Salvar</button></div>
       {msg && <div className={'msg ' + (ok ? 'ok' : 'bad')}>{msg}</div>}
+      <p className="sub">Em sábados e domingos vale a diária de fim de semana (equivale a {brl((s.weekendDayValue || 0) / 8)}/hora para 8h trabalhadas; proporcional se trabalhar menos ou mais horas).</p>
       <p className="sub">Para ativar a localização: abra esta tela no celular, de dentro do local de trabalho, toque em “Usar minha posição atual”, marque “Sim” e salve.</p>
     </div>
   );

@@ -21,6 +21,16 @@ export const POST = guard(async req => {
   return Response.json({ ok: true });
 }, true);
 
+export const PATCH = guard(async req => {
+  const id = parseInt(new URL(req.url).searchParams.get('id'), 10);
+  const b = await req.json().catch(() => ({}));
+  if (!id) return bad('Escala inválida.');
+  if (!TIME_RE.test(b.start || '') || !TIME_RE.test(b.end || '')) return bad('Preencha os horários.');
+  if (toMin(b.end) <= toMin(b.start)) return bad('O fim precisa ser depois do início.');
+  await sql`update shifts set start_time = ${b.start}, end_time = ${b.end} where id = ${id}`;
+  return Response.json({ ok: true });
+}, true);
+
 export const DELETE = guard(async req => {
   const id = parseInt(new URL(req.url).searchParams.get('id'), 10);
   if (!id) return bad('Escala inválida.');

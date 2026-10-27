@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db';
 import { guard, bad } from '@/lib/auth';
-import { spDay, spMin, toMin } from '@/lib/time';
+import { spDay, spMin, toMin, isWeekend } from '@/lib/time';
 import { summarize, groupByUserDay, round2 } from '@/lib/work';
 
 const TOL = 5; // minutos de tolerância para atraso
@@ -10,7 +10,7 @@ export const GET = guard(async req => {
   if (!/^\d{4}-\d{2}$/.test(m)) return bad('Mês inválido.');
   const [y, mo] = m.split('-').map(Number);
   const from = m + '-01', to = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`;
-  const [s] = await sql`select hour_value::float as hv from settings where id = 1`;
+  const [s] = await sql`select hour_value::float as hv, weekend_day_value::float as wdv from settings where id = 1`;
   const users = await sql`select id, name, active from users where role = 'employee' order by active desc, name`;
   const pu = await sql`select user_id, type, ts, day::text as day from punches where day >= ${from} and day < ${to} order by ts`;
   const sh = await sql`select user_id, day::text as day, to_char(start_time,'HH24:MI') st, to_char(end_time,'HH24:MI') en from shifts where day >= ${from} and day < ${to}`;
@@ -31,11 +31,12 @@ export const GET = guard(async req => {
       const first = by[d].find(p => p.type === 'in'), planned = mine.find(x => x.day === d);
       if (planned && spMin(first.ts) > toMin(planned.st) + TOL) late++;
       const isPaid = paid.has(d);
+      const rate = isWeekend(d) ? s.wdv / 8 : s.hv; // sáb/dom: diária de 8h (s.wdv) proporcional às horas
       return {
         day: d, hours: r.hours, open: r.open != null,
         working: r.open != null && d === today, // ainda trabalhando agora
         segs: r.segs, openAt: r.open, // horários (minutos do dia) para o calendário
-        paid: isPaid, value: isPaid ? paid.get(d) : round2(r.hours * s.hv),
+        paid: isPaid, value: isPaid ? paid.get(d) : round2(r.hours * rate),
       };
     });
     let planned = 0, miss = 0, shiftsDue = 0, shiftsDone = 0;
@@ -53,5 +54,5 @@ export const GET = guard(async req => {
       late, miss, hours, planned, shifts: mine.length, sched: mine.map(x => ({ day: x.day, st: x.st, en: x.en })), shiftsDue, shiftsDone, due, paid: paidSum, list };
   }).filter(r => r.active || r.list.length);
 
-  return Response.json({ hourValue: s.hv, rows });
+  return Response.json({ hourValue: s.hv, weekendDayValue: s.wdv, rows });
 }, true);

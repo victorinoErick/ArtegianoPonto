@@ -35,6 +35,7 @@ await sql`create table if not exists settings(
   lat double precision, lng double precision,
   radius int not null default 150)`;
 await sql`alter table settings add column if not exists hour_value numeric(10,2) not null default 18.75`;
+await sql`alter table settings add column if not exists weekend_day_value numeric(10,2) not null default 185`;
 await sql`insert into settings(id) values(1) on conflict do nothing`;
 await sql`create table if not exists login_attempts(
   id serial primary key, username text not null, ts timestamptz not null default now())`;

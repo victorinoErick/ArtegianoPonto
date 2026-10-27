@@ -113,6 +113,11 @@ label{font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:3px
 .cal-c.pago .cal-r{color:var(--ok)}
 .cal-c.pend .cal-r{color:var(--warn)}
 .cal-lg{margin-top:10px}
+/* ---------- escala: um card por dia, fim de semana em destaque ---------- */
+.esc-dia{border-left:3px solid var(--bd)}
+.esc-dia.fim{border-left-color:var(--ac)}
+.esc-dh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.esc-tag{color:var(--ac);border-color:var(--ac);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
 @media (max-width:560px){
 .cal{gap:3px}
 .cal-c{min-height:58px;padding:4px 3px 4px 6px}
