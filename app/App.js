@@ -369,7 +369,7 @@ function Pagamentos() {
   const run = async fn => { try { await fn(); } catch (e) { alert(e.message); } await load(); };
   if (!r) return <div className="card">{err || 'Carregando…'}</div>;
   const x = sel != null && r.rows.find(y => y.id === sel);
-  if (x) return <Calendario x={x} m={m} setM={setM} hv={r.hourValue} run={run} voltar={() => setSel(null)} />;
+  if (x) return <Calendario x={x} m={m} setM={setM} hv={x.rate} run={run} voltar={() => setSel(null)} />;
   const owe = r.rows.reduce((a, y) => a + y.due, 0), paid = r.rows.reduce((a, y) => a + y.paid, 0);
   return (
     <>
@@ -447,7 +447,7 @@ function Calendario({ x, m, setM, hv, run, voltar }) {
             {sel.w.segs.map((g, i) => <div className="sh" key={i}><span>Entrada <b>{hhmm(g.s)}</b> · Saída <b>{hhmm(g.e)}</b></span><span>{fmtH((g.e - g.s) / 60)}</span></div>)}
             {sel.w.openAt != null && <div className="sh"><span>Entrada <b>{hhmm(sel.w.openAt)}</b> · {sel.w.working ? <span className="ok">ainda trabalhando</span> : <span className="warn">saída não batida</span>}</span><span>—</span></div>}
             <div className="sh"><span className="sub">Escala</span><span>{sel.s ? sel.s.st + ' – ' + sel.s.en : 'sem escala'}</span></div>
-            {!sel.w.working && <div className="sh"><span>Total</span><span>{fmtH(sel.w.hours)} × {brl(hv)} = <b>{brl(sel.w.value)}</b></span></div>}
+            {!sel.w.working && <div className="sh"><span>Total</span><span>{fmtH(sel.w.hours)} × {brl(sel.w.rate)} = <b>{brl(sel.w.value)}</b></span></div>}
             <div className="row" style={{ marginTop: 10, justifyContent: 'flex-end' }}>
               {sel.w.paid ? <button className="x" onClick={() => desfazer(dia)}>Desfazer pagamento</button>
                 : sel.w.working ? <span className="sub">Dá para pagar depois que ele bater a saída.</span>
